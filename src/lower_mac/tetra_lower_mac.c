@@ -221,6 +221,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, const uint8_t *bits, unsigned 
 			printf("WRONG\n");
 	} else if (type == TPSAP_T_BBK) {
 		/* FIXME: RM3014-decode */
+		//tetra_rm3014_decode(const uint32_t inp, uint16_t * out)
 		tup->crc_ok = 1;
 		memcpy(type2, type4, tbp->type2_bits);
 		DEBUGP("%s %s type1: %s\n", tbp->name, time_str,
@@ -231,6 +232,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, const uint8_t *bits, unsigned 
 
 	switch (type) {
 	case TPSAP_T_SB1:
+		/* BSCH 60 bits */
 		printf("TMB-SAP SYNC CC %s(0x%02x) ", osmo_ubit_dump(type2+4, 6), bits_to_uint(type2+4, 6));
 		printf("TN %s(%u) ", osmo_ubit_dump(type2+10, 2), bits_to_uint(type2+10, 2));
 		printf("FN %s(%2u) ", osmo_ubit_dump(type2+12, 5), bits_to_uint(type2+12, 5));
@@ -261,9 +263,11 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, const uint8_t *bits, unsigned 
 		/* FIXME: do something */
 		break;
 	case TPSAP_T_BBK:
+		/* AACH 14 bits*/
 		tup->lchan = TETRA_LC_AACH;
 		break;
 	case TPSAP_T_SCH_F:
+		/* SCH/F 268 bits */
 		tup->lchan = TETRA_LC_SCH_F;
 
 		/* send voice frames for further processing --sq5bpf */
@@ -296,7 +300,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, const uint8_t *bits, unsigned 
 			sendto(tetra_hack_live_socket, (char *)&tmpstr, sizeof(block)+13, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 
 		}
-			/* sq5bpf: koniec */
+			/* sq5bpf: end */
 		break;
 	default:
 		/* FIXME: do something */

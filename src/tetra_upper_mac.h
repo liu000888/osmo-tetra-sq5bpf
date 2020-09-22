@@ -4,8 +4,8 @@
 #include "tetra_prim.h"
 
 /* TMV-SAP parser 
- * struct osmo_prim_hdr *op (inout) : 
- * void * priv (inout)             	: tetra mac state
+ * struct osmo_prim_hdr *op (in) : TMV-SAP primitives
+ * void * priv (in)             	: tetra mac state
  * int(return)                      : status of prase
 */
 int upper_mac_prim_recv(struct osmo_prim_hdr *op, void *priv);

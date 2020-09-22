@@ -132,7 +132,7 @@ int parse_d_status(struct tetra_mac_state *tms, struct msgb *msg, unsigned int l
 
 	memset(&rsd, 0, sizeof(rsd));
 	tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
-	/* strona 269 */
+	/* 14.7.1.11 */
 	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
 	uint8_t cpti;
 	uint32_t callingssi;
@@ -184,7 +184,7 @@ int parse_d_release(struct tetra_mac_state *tms, struct msgb *msg, unsigned int 
 
 	memset(&rsd, 0, sizeof(rsd));
 	tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
-	/* strona 270 */
+	/* 14.7.1.9 */
 	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
 	m=14; uint16_t callident=bits_to_uint(bits+n, m); n=n+m;
 	m=5; uint16_t disccause=bits_to_uint(bits+n, m); n=n+m;
@@ -208,7 +208,7 @@ int parse_d_connect(struct tetra_mac_state *tms, struct msgb *msg, unsigned int 
 
 	memset(&rsd, 0, sizeof(rsd));
 	tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
-	/* strona 266 */
+	/* 14.7.1.4 */
 	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
 	m=14; uint16_t callident=bits_to_uint(bits+n, m); n=n+m;
 	m=4; uint8_t call_timeout=bits_to_uint(bits+n, m); n=n+m;
@@ -271,7 +271,7 @@ int parse_d_txgranted(struct tetra_mac_state *tms, struct msgb *msg, unsigned in
 
 	memset(&rsd, 0, sizeof(rsd));
 	tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
-	/* strona 271 */
+	/* 14.7.1.15 */
 	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
 	m=14; uint16_t callident=bits_to_uint(bits+n, m); n=n+m;
 	m=2; uint8_t tx_grant=bits_to_uint(bits+n, m); n=n+m;
@@ -352,7 +352,7 @@ uint parse_d_setup(struct tetra_mac_state *tms, struct msgb *msg, unsigned int l
 
 
 
-	/* strona 270, opisy strona 280 */
+	/* 14.7.1.12, descriptions on 14.8 */
 	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
 
 	m=14; uint16_t callident=bits_to_uint(bits+n, m); n=n+m;
@@ -403,7 +403,7 @@ uint parse_d_setup(struct tetra_mac_state *tms, struct msgb *msg, unsigned int l
 	sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen((char *)&tmpstr2)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 }
 
-/* decode 18.5.17 Neighbour cell information for CA */
+/* decode 18.5.17 Neighbour cell information for CA, example in E2.2, table E.18 */
 /* str 535, przyklad str 1294 */
 int parse_nci_ca( uint8_t *bits)
 {
@@ -565,42 +565,57 @@ static int rx_tl_sdu(struct tetra_mac_state *tms, struct msgb *msg, unsigned int
 			break;
 		case TMLE_PDISC_CMCE:
 			printf(" %s", tetra_get_cmce_pdut_name(bits_to_uint(bits+3, 5), 0));
-
+			
 			/* sq5bpf */
 			switch(bits_to_uint(bits+3, 5)) {
-				case TCMCE_PDU_T_D_SETUP:
-					parse_d_setup(tms,msg,len);
+				case TCMCE_PDU_T_D_ALERT:
 					break;
-
+				case TCMCE_PDU_T_D_CALL_PROCEEDING:
+					break;
 				case TCMCE_PDU_T_D_CONNECT:
 					parse_d_connect(tms,msg,len);
 					break;
-
+				case TCMCE_PDU_T_D_CONNECT_ACK:
+					break;
+				case TCMCE_PDU_T_D_DISCONNECT:
+					break;
+				case TCMCE_PDU_T_D_INFO:
+					break;
 				case TCMCE_PDU_T_D_RELEASE:
 					parse_d_release(tms,msg,len);
 					break;
-
-				case TCMCE_PDU_T_D_TX_GRANTED:
-					parse_d_txgranted(tms,msg,len);
+				case TCMCE_PDU_T_D_SETUP:
+					parse_d_setup(tms,msg,len);
 					break;
-
 				case TCMCE_PDU_T_D_STATUS:
 					parse_d_status(tms,msg,len);
 					break;
-
-					case TCMCE_PDU_T_D_SDS_DATA:
+				case TCMCE_PDU_T_D_TX_CEASED:
+					break;
+				case TCMCE_PDU_T_D_TX_CONTINUE:
+					break;
+				case TCMCE_PDU_T_D_TX_GRANTED:
+					parse_d_txgranted(tms,msg,len);
+					break;
+				case TCMCE_PDU_T_D_TX_WAIT:
+					break;
+				case TCMCE_PDU_T_D_TX_INTERRUPT:
+					break;
+				case TCMCE_PDU_T_D_CALL_RESTORE:
+					break;
+				case TCMCE_PDU_T_D_SDS_DATA:
 					sprintf(tmpstr,"TETMON_begin FUNC:SDS [%s] TETMON_end",osmo_ubit_dump(bits, len));
 					sendto(tetra_hack_live_socket, (char *)&tmpstr, strlen((char *)&tmpstr)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 					parse_d_sds_data(tms,msg,len);
 					break;
-
-
-
-					/*				case TCMCE_PDU_T_U_SDS_DATA:
-									sprintf(tmpstr,"TETMON_begin FUNC:D-SDS [%s] TETMON_end",osmo_ubit_dump(bits, len));
-									sendto(tetra_hack_live_socket, (char *)&tmpstr, strlen((char *)&tmpstr)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
-									break;
-									*/
+				case TCMCE_PDU_T_D_FACILITY:
+					break;
+				//case TCMCE_PDU_T_U_SDS_DATA:
+					//sprintf(tmpstr,"TETMON_begin FUNC:D-SDS [%s] TETMON_end",osmo_ubit_dump(bits, len));
+					//sendto(tetra_hack_live_socket, (char *)&tmpstr, strlen((char *)&tmpstr)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+					//break;
+				default:
+					break;	
 			}
 
 			break;
@@ -893,9 +908,15 @@ out:
 
 		if (mle_pdisc==TMLE_PDISC_CMCE) {
 
-			sprintf(tmpstr,"TETMON_begin FUNC:%s SSI:%8.8i IDX:%3.3i IDT:%i ENCR:%i RX:%i TETMON_end",tetra_get_cmce_pdut_name(req_type, 0),rsd.addr.ssi,rsd.addr.usage_marker,rsd.addr.type,rsd.encryption_mode,tetra_hack_rxid);
+			sprintf(tmpstr,"TETMON_begin FUNC:%s SSI:%8.8i IDX:%3.3i IDT:%i ENCR:%i RX:%i TETMON_end",
+				tetra_get_cmce_pdut_name(req_type, 0),
+				rsd.addr.ssi,
+				rsd.addr.usage_marker,
+				rsd.addr.type,
+				rsd.encryption_mode,
+				tetra_hack_rxid);
 			sendto(tetra_hack_live_socket, (char *)&tmpstr, 128, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
-			//printf("\nSQ5BPF KOMUNIKAT: [%s]\n",tmpstr);
+			//printf("\nSQ5BPF MESSAGE: [%s]\n",tmpstr);
 		}
 
 
