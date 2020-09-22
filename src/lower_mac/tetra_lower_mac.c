@@ -143,7 +143,9 @@ struct tetra_tmvsap_prim *tmvsap_prim_alloc(uint16_t prim, uint8_t op)
 	return ttp;
 }
 
-/* incoming TP-SAP UNITDATA.ind  from PHY into lower MAC */
+/* incoming TP-SAP UNITDATA.ind  from PHY into lower MAC 
+ * AACH, BNCH, BSCH, SCH/F works
+ */
 void tp_sap_udata_ind(enum tp_sap_data_type type, const uint8_t *bits, unsigned int len, void *priv)
 {
 	/* various intermediary buffers */

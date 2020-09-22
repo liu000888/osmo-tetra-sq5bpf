@@ -3,10 +3,15 @@
 
 #include "tetra_prim.h"
 
+/* TMV-SAP parser 
+ * struct osmo_prim_hdr *op (inout) : 
+ * void * priv (inout)             	: tetra mac state
+ * int(return)                      : status of prase
+*/
 int upper_mac_prim_recv(struct osmo_prim_hdr *op, void *priv);
 
 /*  
- * ETSI EN 300 392-9 V1.5.1 (2012-04) page 15
+ * ETSI EN 300 392-9 V1.5.1 (2012-04) page 15 (7.2.2)
  * Notification indicator information element
  * Table 3: Notification indicator information element contents
  */

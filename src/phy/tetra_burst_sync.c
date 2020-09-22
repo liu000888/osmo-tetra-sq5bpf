@@ -140,7 +140,10 @@ int tetra_burst_sync_in(struct tetra_rx_state *trs, uint8_t *bits, unsigned int 
 				if (train_seq_offs == 244)
 					tetra_burst_rx_cb(trs->bitbuf, TETRA_BITS_PER_TS, rc, trs->burst_cb_priv);
 				else
-					fprintf(stderr, "#### SYNC burst at offset %u?!?\n", train_seq_offs);
+					{
+						fprintf(stderr, "#### SYNC burst at offset %u?!?\n", train_seq_offs);
+						trs->state = RX_S_UNLOCKED;
+					}
 				break;
 			default:
 				fprintf(stderr, "#### could not find successive burst training sequence\n");
