@@ -567,6 +567,7 @@ static int rx_tl_sdu(struct tetra_mac_state *tms, struct msgb *msg, unsigned int
 			printf(" %s", tetra_get_cmce_pdut_name(bits_to_uint(bits+3, 5), 0));
 			
 			/* sq5bpf */
+			/* FIXME add more and move this part into tetra_mle.c */
 			switch(bits_to_uint(bits+3, 5)) {
 				case TCMCE_PDU_T_D_ALERT:
 					break;
@@ -620,6 +621,7 @@ static int rx_tl_sdu(struct tetra_mac_state *tms, struct msgb *msg, unsigned int
 
 			break;
 		case TMLE_PDISC_SNDCP:
+			/* SNDCP packet handling */
 			printf(" %s", tetra_get_sndcp_pdut_name(bits_to_uint(bits+3, 4), 0));
 			printf(" NSAPI=%u PCOMP=%u, DCOMP=%u",
 					bits_to_uint(bits+3+4, 4),
