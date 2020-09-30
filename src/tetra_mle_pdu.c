@@ -52,3 +52,35 @@ const char *tetra_get_mle_pdut_name(unsigned int pdut, int uplink)
 	/* FIXME: uplink */
 	return get_value_string(mle_pdut_d_names, pdut);
 }
+
+static const struct value_string cmce_disconn_cause_names[] = {
+	{ 0x00, "Cause not defined or unknown" },
+	{ 0x01, "User requested disconnection" },
+	{ 0x02, "Called party busy" },
+	{ 0x03, "Called party not reachable" },
+	{ 0x04, "Called party does not support encryption" },
+	{ 0x05, "Congestion in infrastructure" },
+	{ 0x06, "Not allowed traffic case" },
+	{ 0x07, "Incompatible traffic case" },
+	{ 0x08, "Requested service not available" },
+	{ 0x09, "Pre-emptive use of resource" },
+	{ 0x0a, "Invalid call identifier" },
+	{ 0x0b, "Call rejected by the called party" },
+	{ 0x0c, "No idle CC entity" },
+	{ 0x0d, "Expiry of timer" },
+	{ 0x0e, "SwMI requested disconnection" },
+	{ 0x0f, "Acknowledged service not completed" },
+	{ 0x10, "Unknown TETRA identity" },
+	{ 0x11, "SS-specific disconnection" },
+	{ 0x12, "Unknown external subscriber identity" },
+	{ 0x13, "Call restoration of the other user failed" },
+	{ 0x14, "Called party requires encryption"},
+	{ 0x15, "Concurrent set-up not supported"},
+	{ 0x16, "Called party is under the same DM-GATE of the calling party"},
+	{ 0x17, "Non-call owner requested disconnection"},
+};
+
+const char * tetra_get_cmce_pdut_disconnect_cause(uint8_t cause)
+{
+	return get_value_string(cmce_disconn_cause_names, cause);
+}

@@ -268,8 +268,8 @@ int main(int argc, char **argv)
 			{
 				fprintf(stderr,"\n### AFC: %f\n",filter);
 
-				sprintf(tmpstr2,"TETMON_begin FUNC:AFCVAL AFC:%i RX:%i TETMON_end",(int) (filter*100.0),tetra_hack_rxid);
-				sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen((char *)&tmpstr2)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+				sprintf(tmpstr2,"TETMON_begin FUNC:AFCVAL AFC:%i RX:%i TETMON_end\r\n",(int) (filter*100.0),tetra_hack_rxid);
+				sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen(tmpstr2)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 
 				ccounter=0;
 			} 

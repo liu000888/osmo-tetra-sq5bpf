@@ -30,6 +30,7 @@
 #include "tetra_common.h"
 #include "tetra_mac_pdu.h"
 
+/* 18.4.2.2 D-MLE-SYSINFO */
 static void decode_d_mle_sysinfo(struct tetra_mle_si_decoded *msid, const uint8_t *bits)
 {
 	const uint8_t *cur = bits;
@@ -39,6 +40,7 @@ static void decode_d_mle_sysinfo(struct tetra_mle_si_decoded *msid, const uint8_
 	msid->bs_service_details = bits_to_uint(cur, 12); cur += 12;
 }
 
+/* 21.4.4.1 */
 void macpdu_decode_sysinfo(struct tetra_si_decoded *sid, const uint8_t *si_bits)
 {
 	const uint8_t *cur = si_bits + 4;

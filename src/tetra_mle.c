@@ -45,6 +45,7 @@ static unsigned int seek_off = 0;
 static uint32_t bit_seek(uint8_t * bits, unsigned int len)
 {
 	uint32_t value = bits_to_uint(bits + seek_off, len);
+	seek_off += len;
 	return value;
 }
 
@@ -53,7 +54,7 @@ static void bit_rewind()
 	seek_off = 0;
 }
 
-/* sq5bpf */
+/* 14.7.1.4 sq5bpf */
 int parse_d_connect(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len) {
 	uint8_t *bits = msg->l3h+3;
 	int n=0;
@@ -111,13 +112,173 @@ int parse_d_connect(struct tetra_mac_state *tms, struct msgb *msg, unsigned int 
 		}
 		printf("\n");
 	}
-	sprintf(buf2," RX:%i TETMON_end",tetra_hack_rxid);
+	sprintf(buf2," RX:%i TETMON_end\r\n",tetra_hack_rxid);
+	strcat(buf,buf2);
+	sendto(tetra_hack_live_socket, (char *)&buf, strlen(buf) + 1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+	return 0;
+}
+
+/* 14.7.1.5 */
+int parse_d_connect_ack(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
+{
+	struct tetra_resrc_decoded rsd;
+	memset(&rsd, 0, sizeof(rsd));
+	int tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
+
+	uint8_t * bits = msg->l3h + 3;
+
+	char buf[1024];
+	char buf2[128];
+
+	bit_rewind();
+	uint8_t pdu_type = bit_seek(bits, 5);
+	uint16_t call_ident = bit_seek(bits, 14);
+	uint8_t call_timeout = bit_seek(bits, 4);
+	uint8_t tx_grant = bit_seek(bits, 2);
+	uint8_t tx_perm = bit_seek(bits, 1);
+	uint8_t o_bit = bit_seek(bits, 1);
+
+	sprintf(buf, "TETMON_begin FUNC:DCONNECTACKDEC SSI:%i IDX:%i CID:%i TXGRANT:%i TXPERM:%i ",
+			rsd.addr.ssi,
+			rsd.addr.usage_marker,
+			call_ident,
+			tx_grant,
+			tx_perm);
+
+	if (o_bit) {
+		uint8_t p_notific_indic = bit_seek(bits, 1);
+		if (p_notific_indic) {
+			// SS
+			uint8_t notific_indic = bit_seek(bits, 6);
+			const char * nis = (notific_indic < 28) ? notification_indicator_strings[notific_indic] : "Reserved";
+			sprintf(buf2, "NID:%i [%s] ", notific_indic, nis);
+			strcat(buf, buf2);
+		}
+	}
+	sprintf(buf2,"RX:%i TETMON_end\r\n",tetra_hack_rxid);
+	strcat(buf,buf2);
+	sendto(tetra_hack_live_socket, (char *)&buf, strlen((char *)&buf)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+
+	return 0;
+}
+
+/* 14.7.1.6 */
+int parse_d_disconnect(struct tetra_mac_state * tms, struct msgb * msg, unsigned int len)
+{
+	struct tetra_resrc_decoded rsd;
+	memset(&rsd, 0, sizeof(rsd));
+	int tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
+
+	uint8_t * bits = msg->l3h + 3;
+
+	char buf[1024];
+	char buf2[128];
+
+	bit_rewind();
+	uint8_t pdu_type = bit_seek(bits, 5);
+	uint16_t call_ident = bit_seek(bits, 14);
+	uint8_t disconn_cause = bit_seek(bits, 5);
+
+	const char * text_disconn_cause = tetra_get_cmce_pdut_disconnect_cause(disconn_cause);
+
+	sprintf(buf, "TETMON_begin FUNC:DDISCONNECTDEC SSI:%i IDX:%i CID:%i CAUSE:%i [%s]",
+				rsd.addr.ssi,
+				rsd.addr.usage_marker,
+				call_ident,
+				disconn_cause,
+				text_disconn_cause);
+
+	uint8_t o_bit = bit_seek(bits, 1);
+	if (o_bit) {
+		uint8_t p_notific_indic = bit_seek(bits, 1);
+		if (p_notific_indic) {
+			// SS
+			uint8_t notific_indic = bit_seek(bits, 6);
+			const char * nis = (notific_indic < 28) ? notification_indicator_strings[notific_indic] : "Reserved";
+			sprintf(buf2, "NID:%i [%s] ", notific_indic, nis);
+			strcat(buf, buf2);
+		}
+	}
+
+	sprintf(buf2," RX:%i TETMON_end\r\n",tetra_hack_rxid);
 	strcat(buf,buf2);
 	sendto(tetra_hack_live_socket, (char *)&buf, strlen((char *)&buf)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 	return 0;
 }
 
-/* sq5bpf */
+/* 14.7.1.8 */
+int parse_d_info(struct tetra_mac_state * tms, struct msgb * msg, unsigned int len)
+{
+	struct tetra_resrc_decoded rsd;
+	memset(&rsd, 0, sizeof(rsd));
+	int tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
+
+	uint8_t * bits = msg->l3h + 3;
+
+	char buf[1024];
+	char buf2[128];
+
+	bit_rewind();
+	uint8_t 	pdu_type 					= bit_seek(bits, 5);
+	uint16_t 	call_ident 					= bit_seek(bits, 14);
+	uint8_t 	reset_call_timer 			= bit_seek(bits, 1);
+	uint8_t 	poll_req 					= bit_seek(bits, 1);
+	uint8_t 	o_bit 						= bit_seek(bits, 1);
+
+	sprintf(buf, "TETMON_begin FUNC:DCONNECTACKDEC SSI:%i IDX:%i CID:%i",
+			rsd.addr.ssi,
+			rsd.addr.usage_marker,
+			call_ident
+			);
+
+	if (o_bit) {
+		if (bit_seek(bits, 1)) {
+			uint16_t new_call_ident 		= bit_seek(bits, 14);
+			sprintf(buf2, "NCID:%i ", new_call_ident);
+			strcat(buf, buf2);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t 	call_timeout 		= bit_seek(bits, 4);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t 	call_tout_setup_phase 	= bit_seek(bits, 3);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t 	call_ownership 		= bit_seek(bits, 1);
+			sprintf(buf2, "CALLOWN:%i ", call_ownership);
+			strcat(buf, buf2);
+		}
+		if (bit_seek(bits, 1)) {
+			uint16_t 	modify 				= bit_seek(bits, 9);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t 	call_status 		= bit_seek(bits, 3);
+			sprintf(buf2, "CALLSTATUS:%i ", call_status);
+			strcat(buf, buf2);
+		}
+		if (bit_seek(bits, 1)) {
+			uint32_t 	temp_addr 			= bit_seek(bits, 24);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t notific_indic 			= bit_seek(bits, 6);
+			const char * nis = (notific_indic < 28) ? notification_indicator_strings[notific_indic] : "Reserved";
+			sprintf(buf2, "NID:%i [%s] ", notific_indic, nis);
+			strcat(buf, buf2);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t poll_resp_percent		= bit_seek(bits, 6);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t poll_resp_num 			= bit_seek(bits, 6);
+		}
+	}
+	sprintf(buf2," RX:%i TETMON_end\r\n",tetra_hack_rxid);
+	strcat(buf,buf2);
+	sendto(tetra_hack_live_socket, (char *)&buf, strlen((char *)&buf)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+	return 0;
+}
+
+/* 14.7.1.9 sq5bpf */
 int parse_d_release(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
 {
 	uint8_t *bits = msg->l3h+3;
@@ -136,19 +297,61 @@ int parse_d_release(struct tetra_mac_state *tms, struct msgb *msg, unsigned int 
 	m=5; uint16_t disccause=bits_to_uint(bits+n, m); n=n+m;
 	m=6; uint16_t notifindic=bits_to_uint(bits+n, m); n=n+m;
 	nis=(notifindic<28)?notification_indicator_strings[notifindic]:"Reserved";
-	printf("\nCall identifier:%i Discconnect cause:%i NotificationID:%i (%s)\n",callident,disccause,notifindic,nis);
-	sprintf(tmpstr2,"TETMON_begin FUNC:DRELEASEDEC SSI:%i CID:%i NID:%i [%s] RX:%i TETMON_end",rsd.addr.ssi,callident, notifindic,nis,tetra_hack_rxid);
+	printf("\nCall identifier:%i Disconnect cause:%i NotificationID:%i (%s)\n",callident,disccause,notifindic,nis);
+	sprintf(tmpstr2,"TETMON_begin FUNC:DRELEASEDEC SSI:%i CID:%i NID:%i [%s] RX:%i TETMON_end\r\n",rsd.addr.ssi,callident, notifindic,nis,tetra_hack_rxid);
 	sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen((char *)&tmpstr2)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 	return 0;
 }
 
-/* bg2csg */
-int parse_d_sds(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
+/* 14.7.1.11 sq5bpf */
+int parse_d_status(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
 {
+	uint8_t *bits = msg->l3h+3;
+	int n=0;
+	int m=0;
+	char tmpstr2[1024];
+	char *nis;
+	int tmpdu_offset;
+	struct tetra_resrc_decoded rsd;
+
+	memset(&rsd, 0, sizeof(rsd));
+	tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
+	/* 14.7.1.11 */
+	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
+	uint8_t cpti;
+	uint32_t callingssi;
+	uint32_t callingext=0;
+	m=2;  cpti=bits_to_uint(bits+n, m); n=n+m;
+	switch(cpti)
+	{
+		case 0: /* SNA */
+			m=8; callingssi=bits_to_uint(bits+n, m); n=n+m;
+			break;
+		case 1: /* SSI */
+			m=24; callingssi=bits_to_uint(bits+n, m); n=n+m;
+			break;
+		case 2: /* TETRA Subscriber Identity (TSI) */
+			m=24; callingssi=bits_to_uint(bits+n, m); n=n+m;
+			m=24; callingext=bits_to_uint(bits+n, m); n=n+m;
+			break;
+		case 3: /* reserved ? */
+			break;
+	}
+
+	m=16; uint16_t precoded_status=bits_to_uint(bits+n, m); n=n+m;
+
+	m=1; uint8_t o_bit=bits_to_uint(bits+n, m); n=n+m;
+
+	if (o_bit) {
+		/* TODO: parse optional data */
+	}
+	printf("\nCPTI:%i CalledSSI:%i CallingSSI:%i CallingEXT:%i Status:%i (0x%4.4x)\n",cpti,rsd.addr.ssi,callingssi,callingext,precoded_status);
+	sprintf(tmpstr2,"TETMON_begin FUNC:DSTATUSDEC SSI:%i SSI2:%i STATUS:%i RX:%i TETMON_end\r\n",rsd.addr.ssi,callingssi,precoded_status,tetra_hack_rxid);
+	sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen((char *)&tmpstr2)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 	return 0;
 }
 
-/* sq5bpf */
+/* 14.7.1.12 sq5bpf */
 int parse_d_setup(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
 {
 	uint8_t *bits = msg->l3h+3;
@@ -170,7 +373,6 @@ int parse_d_setup(struct tetra_mac_state *tms, struct msgb *msg, unsigned int le
 
 	/* 14.7.1.12, descriptions on 14.8 */
 	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
-
 	m=14; uint16_t callident=bits_to_uint(bits+n, m); n=n+m;
 	m=4; uint16_t calltimeout=bits_to_uint(bits+n, m);  n=n+m;
 	m=1; uint16_t hookmethod=bits_to_uint(bits+n, m); n=n+m;
@@ -215,62 +417,56 @@ int parse_d_setup(struct tetra_mac_state *tms, struct msgb *msg, unsigned int le
 	printf("Basicinfo:0x%2.2X  Txgrant:%i  TXperm:%i  Callprio:%i\n",basicinfo,txgrant,txperm,callprio);
 	printf("NotificationID:%i  Tempaddr:%i CPTI:%i  CallingSSI:%i  CallingExt:%i\n",notifindic,tempaddr,cpti,callingssi,callingext);
 
-	sprintf(tmpstr2,"TETMON_begin FUNC:DSETUPDEC IDX:%i SSI:%i SSI2:%i CID:%i NID:%i RX:%i TETMON_end",rsd.addr.usage_marker,rsd.addr.ssi,callingssi,callident,notifindic,tetra_hack_rxid);
-	sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen((char *)&tmpstr2)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+	sprintf(tmpstr2,"TETMON_begin FUNC:DSETUPDEC IDX:%i SSI:%i SSI2:%i CID:%i NID:%i RX:%i TETMON_end\r\n",
+			rsd.addr.usage_marker,
+			rsd.addr.ssi,
+			callingssi,
+			callident,
+			notifindic,
+			tetra_hack_rxid);
+	sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen(tmpstr2) + 1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 	return 0;
 }
 
-/* sq5bpf */
-int parse_d_status(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
+/* 14.7.1.13 */
+int parse_d_txceased(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
 {
-	uint8_t *bits = msg->l3h+3;
-	int n=0;
-	int m=0;
-	char tmpstr2[1024];
-	char *nis;
-	int tmpdu_offset;
 	struct tetra_resrc_decoded rsd;
-
 	memset(&rsd, 0, sizeof(rsd));
-	tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
-	/* 14.7.1.11 */
-	m=5; uint8_t pdu_type=bits_to_uint(bits+n, m); n=n+m;
-	uint8_t cpti;
-	uint32_t callingssi;
-	uint32_t callingext=0;
-	m=2;  cpti=bits_to_uint(bits+n, m); n=n+m;
-	switch(cpti)
-	{
-		case 0: /* SNA */
-			m=8; callingssi=bits_to_uint(bits+n, m); n=n+m;
-			break;
-		case 1: /* SSI */
-			m=24; callingssi=bits_to_uint(bits+n, m); n=n+m;
-			break;
-		case 2: /* TETRA Subscriber Identity (TSI) */
-			m=24; callingssi=bits_to_uint(bits+n, m); n=n+m;
-			m=24; callingext=bits_to_uint(bits+n, m); n=n+m;
-			break;
-		case 3: /* reserved ? */
-			break;
-	}
+	int tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
 
+	uint8_t * bits = msg->l3h + 3;
 
+	char buf[1024];
+	char buf2[128];
 
-	m=16; uint16_t precoded_status=bits_to_uint(bits+n, m); n=n+m;
-
-	m=1; uint8_t o_bit=bits_to_uint(bits+n, m); n=n+m;
+	bit_rewind();
+	uint8_t 	pdu_type 		= bit_seek(bits, 5);
+	uint16_t 	call_ident 		= bit_seek(bits, 14);
+	uint8_t 	tx_req_perm		= bit_seek(bits, 1);
+	uint8_t 	o_bit 			= bit_seek(bits, 1);
+	sprintf(buf, "TETMON_begin FUNC:DTXCEASEDDEC SSI:%i IDX:%i CID:%i TXPERM:%i ",
+				rsd.addr.ssi,
+				rsd.addr.usage_marker,
+				call_ident,
+				tx_req_perm);
 
 	if (o_bit) {
-		/* TODO: parse optional data */
+		if (bit_seek(bits, 1)) {
+			uint8_t notific_indic = bit_seek(bits, 6);
+			const char * nis = (notific_indic < 28) ? notification_indicator_strings[notific_indic] : "Reserved";
+			sprintf(buf2, "NID:%i [%s] ", notific_indic, nis);
+			strcat(buf, buf2);
+		}
 	}
-	printf("\nCPTI:%i CalledSSI:%i CallingSSI:%i CallingEXT:%i Status:%i (0x%4.4x)\n",cpti,rsd.addr.ssi,callingssi,callingext,precoded_status);
-	sprintf(tmpstr2,"TETMON_begin FUNC:DSTATUSDEC SSI:%i SSI2:%i STATUS:%i RX:%i TETMON_end",rsd.addr.ssi,callingssi,precoded_status,tetra_hack_rxid);
-	sendto(tetra_hack_live_socket, (char *)&tmpstr2, strlen((char *)&tmpstr2)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+
+	sprintf(buf2," RX:%i TETMON_end\r\n",tetra_hack_rxid);
+	strcat(buf,buf2);
+	sendto(tetra_hack_live_socket, (char *)&buf, strlen((char *)&buf)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 	return 0;
 }
 
-/* sq5bpf */
+/* 14.7.1.15 sq5bpf */
 int parse_d_txgranted(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len) {
 	uint8_t *bits = msg->l3h+3;
 	int n=0;
@@ -340,7 +536,93 @@ int parse_d_txgranted(struct tetra_mac_state *tms, struct msgb *msg, unsigned in
 		/* TODO: type 3/4 elements */
 		printf("\n");
 	}
-	sprintf(buf2," RX:%i TETMON_end",tetra_hack_rxid);
+	sprintf(buf2," RX:%i TETMON_end\r\n",tetra_hack_rxid);
+	strcat(buf,buf2);
+	sendto(tetra_hack_live_socket, (char *)&buf, strlen((char *)&buf)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+	return 0;
+}
+
+/* 14.7.1.16 */
+int parse_d_txinterrupt(struct tetra_mac_state * tms, struct msgb * msg, unsigned int len)
+{
+	struct tetra_resrc_decoded rsd;
+	memset(&rsd, 0, sizeof(rsd));
+	int tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
+
+	uint8_t * bits = msg->l3h + 3;
+
+	char buf[1024];
+	char buf2[128];
+
+	bit_rewind();
+	uint8_t 	pdu_type 		= bit_seek(bits, 5);
+	uint16_t 	call_ident 		= bit_seek(bits, 14);
+	uint8_t 	tx_grant 		= bit_seek(bits, 2);
+	uint8_t 	tx_req_perm		= bit_seek(bits, 1);
+	uint8_t 	encc 			= bit_seek(bits, 1);
+	uint8_t 	rsvd 			= bit_seek(bits, 1);
+	uint8_t 	o_bit 			= bit_seek(bits, 1);
+	if (o_bit) {
+		if (bit_seek(bits, 1)) {
+			uint8_t notific_indic = bit_seek(bits, 6);
+			const char * nis = (notific_indic < 28) ? notification_indicator_strings[notific_indic] : "Reserved";
+			sprintf(buf2, "NID:%i [%s] ", notific_indic, nis);
+			strcat(buf, buf2);
+		}
+		if (bit_seek(bits, 1)) {
+			uint8_t cpti 		= bit_seek(bits, 6);
+			uint32_t callingssi, callingext;
+			switch (cpti) {
+			case 1:
+				callingssi = bit_seek(bits, 24);
+				break;
+			case 2:
+				callingssi = bit_seek(bits, 24);
+				callingext = bit_seek(bits, 24);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	uint8_t 	m_bit 			= bit_seek(bits, 1);
+
+	return 0;
+}
+
+/* 14.7.1.17 */
+int parse_d_txwait(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
+{
+	struct tetra_resrc_decoded rsd;
+	memset(&rsd, 0, sizeof(rsd));
+	int tmpdu_offset = macpdu_decode_resource(&rsd, msg->l1h);
+
+	uint8_t * bits = msg->l3h + 3;
+
+	char buf[1024];
+	char buf2[128];
+
+	bit_rewind();
+	uint8_t 	pdu_type 		= bit_seek(bits, 5);
+	uint16_t 	call_ident 		= bit_seek(bits, 14);
+	uint8_t 	tx_req_perm		= bit_seek(bits, 1);
+	uint8_t 	o_bit 			= bit_seek(bits, 1);
+	sprintf(buf, "TETMON_begin FUNC:DTXWAITDEC SSI:%i IDX:%i CID:%i TXPERM:%i ",
+				rsd.addr.ssi,
+				rsd.addr.usage_marker,
+				call_ident,
+				tx_req_perm);
+
+	if (o_bit) {
+		if (bit_seek(bits, 1)) {
+			uint8_t notific_indic = bit_seek(bits, 6);
+			const char * nis = (notific_indic < 28) ? notification_indicator_strings[notific_indic] : "Reserved";
+			sprintf(buf2, "NID:%i [%s] ", notific_indic, nis);
+			strcat(buf, buf2);
+		}
+	}
+
+	sprintf(buf2," RX:%i TETMON_end\r\n",tetra_hack_rxid);
 	strcat(buf,buf2);
 	sendto(tetra_hack_live_socket, (char *)&buf, strlen((char *)&buf)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 	return 0;
@@ -440,14 +722,14 @@ int parse_nci_ca( uint8_t *bits)
 	strcat(buf,buf2);
 	printf("%s",buf);
 
-	sprintf(buf2," RX:%i TETMON_end",tetra_hack_rxid);
+	sprintf(buf2," RX:%i TETMON_end\r\n",tetra_hack_rxid);
 	strcat(freqinfo,buf2);
-	sendto(tetra_hack_live_socket, (char *)&freqinfo, 128, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+	sendto(tetra_hack_live_socket, (char *)&freqinfo, strlen(freqinfo) + 1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 
 	return(n);
 }
 
-/* sq5bpf */
+/* 18.4.1.4.1 sq5bpf */
 int parse_d_nwrk_broadcast(struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
 {
 	uint8_t *bits = msg->l3h;
@@ -491,11 +773,48 @@ int parse_d_nwrk_broadcast(struct tetra_mac_state *tms, struct msgb *msg, unsign
 	return 0;
 }
 
+int rx_mm_pdu(enum tetra_mm_pdu_type_d type, struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
+{
+	switch (type) {
+	case TMM_PDU_T_D_OTAR:
+		break;
+	case TMM_PDU_T_D_AUTH:
+		break;
+	case TMM_PDU_T_D_CK_CHG_DEM:
+		break;
+	case TMM_PDU_T_D_DISABLE:
+		break;
+	case TMM_PDU_T_D_ENABLE:
+		break;
+	case TMM_PDU_T_D_LOC_UPD_ACC:
+		break;
+	case TMM_PDU_T_D_LOC_UPD_CMD:
+		break;
+	case TMM_PDU_T_D_LOC_UPD_REJ:
+		break;
+	case TMM_PDU_T_D_LOC_UPD_PROC:
+		break;
+	case TMM_PDU_T_D_ATT_DET_GRP:
+		break;
+	case TMM_PDU_T_D_ATT_DET_GRP_ACK:
+		break;
+	case TMM_PDU_T_D_MM_STATUS:
+		break;
+	case TMM_PDU_T_D_MM_PDU_NOTSUPP:
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 /* sq5bpf */
 int rx_cmce_pdu(enum tetra_cmce_pdu_type_d type, struct tetra_mac_state *tms, struct msgb *msg, unsigned int len)
 {
+	uint8_t * bits = msg->l3h;
+	enum tetra_cmce_pdu_type_d cmce_type = bits_to_uint(bits + 3, 5);
 	char tmpstr[4096] = {0};
-	switch(type) {
+	switch(cmce_type) {
 		case TCMCE_PDU_T_D_ALERT:
 			break;
 		case TCMCE_PDU_T_D_CALL_PROCEEDING:
@@ -504,10 +823,13 @@ int rx_cmce_pdu(enum tetra_cmce_pdu_type_d type, struct tetra_mac_state *tms, st
 			parse_d_connect(tms,msg,len);
 			break;
 		case TCMCE_PDU_T_D_CONNECT_ACK:
+			parse_d_connect_ack(tms, msg, len);
 			break;
 		case TCMCE_PDU_T_D_DISCONNECT:
+
 			break;
 		case TCMCE_PDU_T_D_INFO:
+			parse_d_info(tms, msg, len);
 			break;
 		case TCMCE_PDU_T_D_RELEASE:
 			parse_d_release(tms,msg,len);
@@ -519,6 +841,7 @@ int rx_cmce_pdu(enum tetra_cmce_pdu_type_d type, struct tetra_mac_state *tms, st
 			parse_d_status(tms,msg,len);
 			break;
 		case TCMCE_PDU_T_D_TX_CEASED:
+			parse_d_txceased(tms, msg, len);
 			break;
 		case TCMCE_PDU_T_D_TX_CONTINUE:
 			break;
@@ -526,13 +849,15 @@ int rx_cmce_pdu(enum tetra_cmce_pdu_type_d type, struct tetra_mac_state *tms, st
 			parse_d_txgranted(tms,msg,len);
 			break;
 		case TCMCE_PDU_T_D_TX_WAIT:
+			parse_d_txwait(tms, msg, len);
 			break;
 		case TCMCE_PDU_T_D_TX_INTERRUPT:
+			parse_d_txinterrupt(tms, msg, len);
 			break;
 		case TCMCE_PDU_T_D_CALL_RESTORE:
 			break;
 		case TCMCE_PDU_T_D_SDS_DATA:
-			sprintf(tmpstr,"TETMON_begin FUNC:SDS [%s] TETMON_end",osmo_ubit_dump(msg->l3h, len));
+			sprintf(tmpstr,"TETMON_begin FUNC:SDS [%s] TETMON_end\r\n",osmo_ubit_dump(msg->l3h, len));
 			sendto(tetra_hack_live_socket, (char *)&tmpstr, strlen((char *)&tmpstr)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 			parse_d_sds_data(tms,msg,len);
 			break;
@@ -540,7 +865,7 @@ int rx_cmce_pdu(enum tetra_cmce_pdu_type_d type, struct tetra_mac_state *tms, st
 			break;
 //		case TCMCE_PDU_T_U_SDS_DATA:
 //			/* Not sure if it works */
-//			sprintf(tmpstr,"TETMON_begin FUNC:D-SDS [%s] TETMON_end",osmo_ubit_dump(msg->l3h, len));
+//			sprintf(tmpstr,"TETMON_begin FUNC:D-SDS [%s] TETMON_end\r\n",osmo_ubit_dump(msg->l3h, len));
 //			sendto(tetra_hack_live_socket, (char *)&tmpstr, strlen((char *)&tmpstr)+1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 //			break;
 		default:
@@ -553,12 +878,23 @@ int rx_mle_pdu(enum tetra_cmce_pdu_type_d type, struct tetra_mac_state *tms, str
 {
 	switch(type)
 	{
-		case TMLE_PDUT_D_NWRK_BROADCAST:
-			/* parse d-nwrk-broadcast */
-			parse_d_nwrk_broadcast(tms,msg,len);
-			break;
-		default:
-			break;
+	case TMLE_PDUT_D_NEW_CELL:
+		break;
+	case TMLE_PDUT_D_PREPARE_FAIL:
+		break;
+	case TMLE_PDUT_D_NWRK_BROADCAST:
+		parse_d_nwrk_broadcast(tms,msg,len);
+		break;
+	case TMLE_PDUT_D_NWRK_BROADCAST_EXT:
+		break;
+	case TMLE_PDUT_D_RESTORE_ACK:
+		break;
+	case TMLE_PDUT_D_RESTORE_FAIL:
+		break;
+	case TMLE_PDUT_D_CHANNEL_RESPONSE:
+		break;
+	default:
+		break;
 	}
 	return 0;
 }

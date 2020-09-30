@@ -4,7 +4,7 @@
 #define MACPDU_LEN_2ND_STOLEN   -1
 #define MACPDU_LEN_START_FRAG   -2
 
-
+/* 21.4.1 MAC PDU types Table 21.38 */
 enum tetra_mac_pdu_types {
 	TETRA_PDU_T_MAC_RESOURCE = 0,
 	TETRA_PDU_T_MAC_FRAG_END = 1,
@@ -22,6 +22,7 @@ enum tetra_mac_bcast_pdu_types {
 	TETRA_MAC_BC_ACCESS_DEFINE = 1,
 };
 
+/* Table 21.39 */
 enum tetra_mac_supp_pdu_types {
 	TETRA_MAC_SUPP_D_BLCK = 0,
 };
@@ -203,6 +204,7 @@ struct tetra_addr {
 	uint8_t usage_marker;
 };
 
+/* Table 21.55 in 21.4.3.1 */
 struct tetra_resrc_decoded {
 	uint8_t encryption_mode;
 	uint8_t rand_acc_flag;

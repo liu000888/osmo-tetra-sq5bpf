@@ -64,6 +64,9 @@ static void rx_bcast(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_state *tms
 
 	printf("BNCH SYSINFO (DL %u Hz, UL %u Hz), service_details 0x%04x LA:%u ",
 			dl_freq, ul_freq, sid.mle_si.bs_service_details,sid.mle_si.la);
+
+	printf("TXPWR: %udBm ", 15 + sid.ms_txpwr_max_cell * 5);
+
 	/* sq5bpf */
 
 	tetra_hack_freq_band=sid.freq_band;
@@ -108,8 +111,8 @@ const char *tetra_alloc_dump(const struct tetra_chan_alloc_decoded *cad, struct 
 		switch (cad->ul_dl) {
 
 			case 3: /* uplink + downlink */
-				sprintf(freqinfo,"TETMON_begin FUNC:FREQINFO2 DLF:%i RX:%i TETMON_end",tetra_dl_carrier_hz(freq_band, cad->carrier_nr, freq_offset),tetra_hack_rxid);
-				sendto(tetra_hack_live_socket, (char *)&freqinfo, 128, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+				sprintf(freqinfo,"TETMON_begin FUNC:FREQINFO2 DLF:%i RX:%i TETMON_end\r\n",tetra_dl_carrier_hz(freq_band, cad->carrier_nr, freq_offset),tetra_hack_rxid);
+				sendto(tetra_hack_live_socket, (char *)&freqinfo, strlen(freqinfo) + 1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 				break;
 
 			default:
@@ -131,6 +134,7 @@ static int rx_tl_sdu(struct tetra_mac_state *tms, struct msgb *msg, unsigned int
 	switch (mle_pdisc) {
 		case TMLE_PDISC_MM:
 			printf(" %s", tetra_get_mm_pdut_name(bits_to_uint(bits+3, 4), 0));
+			rx_mm_pdu(bits_to_uint(bits + 3, 4), tms, msg, len);
 			break;
 		case TMLE_PDISC_CMCE:
 			printf(" %s", tetra_get_cmce_pdut_name(bits_to_uint(bits+3, 5), 0));
@@ -317,7 +321,7 @@ void hexdump(unsigned char *c,int i)
 	printf ("]\n");
 }
 
-
+/* 21.4.3.1 MAC-RESOURCE */
 static void rx_resrc(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_state *tms, int slot)
 {
 	struct msgb *msg = tmvp->oph.msg;
@@ -337,8 +341,10 @@ static void rx_resrc(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_state *tms
 
 	if (rsd.addr.type == ADDR_TYPE_NULL)
 		goto out;
+
 	if (rsd.chan_alloc_pres)
 		printf("ChanAlloc=%s ", tetra_alloc_dump(&rsd.cad, tms,(rsd.encryption_mode==0)));
+
 	if (rsd.slot_granting.pres)
 		printf("SlotGrant=%u/%u ", rsd.slot_granting.nr_slots,
 				rsd.slot_granting.delay);
@@ -352,10 +358,12 @@ static void rx_resrc(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_state *tms
 		} 
 		else 
 		{
+			/* fragments */
 			if ((tetra_hack_reassemble_fragments)&&(rsd.macpdu_length==MACPDU_LEN_START_FRAG)) {
 				int len=msgb_l1len(msg) - tmpdu_offset;
 
-				if (fragslots[slot].active) printf("\nWARNING: leftover fragment slot\n");
+				if (fragslots[slot].active)
+					printf("\nWARNING: leftover fragment slot\n");
 
 				fragmsgb=fragslots[slot].msgb;
 
@@ -410,7 +418,6 @@ out:
 		uint8_t	req_type=0;
 		uint16_t callident=0;
 
-
 		if (bits) {
 			mle_pdisc= bits_to_uint(bits, 3);
 			req_type=bits_to_uint(bits+3, 5);
@@ -419,23 +426,17 @@ out:
 		printf("sq5bpf req mle_pdisc=%i req=%i ",mle_pdisc,req_type);
 
 		if (mle_pdisc==TMLE_PDISC_CMCE) {
-
-			sprintf(tmpstr,"TETMON_begin FUNC:%s SSI:%8.8i IDX:%3.3i IDT:%i ENCR:%i RX:%i TETMON_end",
+			sprintf(tmpstr,"TETMON_begin FUNC:%s SSI:%8.8i IDX:%3.3i IDT:%i ENCR:%i RX:%i TETMON_end\r\n",
 				tetra_get_cmce_pdut_name(req_type, 0),
 				rsd.addr.ssi,
 				rsd.addr.usage_marker,
 				rsd.addr.type,
 				rsd.encryption_mode,
 				tetra_hack_rxid);
-			sendto(tetra_hack_live_socket, (char *)&tmpstr, 128, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+			sendto(tetra_hack_live_socket, (char *)&tmpstr, strlen(tmpstr) + 1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 			//printf("\nSQ5BPF MESSAGE: [%s]\n",tmpstr);
 		}
-
-
-
 	}
-
-
 	printf("\n");
 }
 
@@ -552,7 +553,6 @@ static int rx_tmv_unitdata_ind(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_
 					fragslots[i].length=0;
 					fragslots[i].fragtimer=0;
 				}
-
 			}
 		}
 	}
@@ -565,16 +565,16 @@ static int rx_tmv_unitdata_ind(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_
 		case TETRA_LC_UNKNOWN:
 		case TETRA_LC_SCH_F:
 			switch (pdu_type) {
-				case TETRA_PDU_T_BROADCAST:
+				case TETRA_PDU_T_BROADCAST: /* TMB-SAP: Broadcast */
 					rx_bcast(tmvp, tms);
 					break;
-				case TETRA_PDU_T_MAC_RESOURCE:
+				case TETRA_PDU_T_MAC_RESOURCE: /* TMA-SAP: MAC-RESOURCE */
 					rx_resrc(tmvp, tms, slot);
 					break;
-				case TETRA_PDU_T_MAC_SUPPL:
+				case TETRA_PDU_T_MAC_SUPPL: /* TMA-SAP: Supplementary MAC PDU */
 					rx_suppl(tmvp, tms);
 					break;
-				case TETRA_PDU_T_MAC_FRAG_END:
+				case TETRA_PDU_T_MAC_FRAG_END: /* TMA-SAP: MAC-END or MAC-FRAG */
 					pdu_frag_subtype = bits_to_uint(msg->l1h+2, 1);
 
 					if (msg->l1h[3] == TETRA_MAC_FRAGE_FRAG) {
@@ -588,7 +588,9 @@ static int rx_tmv_unitdata_ind(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_
 						printf("\n");
 					} else
 						printf("FRAG/END END\n");
-					if (tetra_hack_reassemble_fragments) rx_macend(tmvp, tms,slot);
+
+					if (tetra_hack_reassemble_fragments)
+						rx_macend(tmvp, tms,slot);
 					break;
 				default:
 					printf("STRANGE pdu=%u\n", pdu_type);

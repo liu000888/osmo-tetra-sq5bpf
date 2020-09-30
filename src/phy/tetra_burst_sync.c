@@ -113,12 +113,16 @@ int tetra_burst_sync_in(struct tetra_rx_state *trs, uint8_t *bits, unsigned int 
 			/* we have successfully received (at least) one frame */
 			tetra_tdma_time_add_tn(&t_phy_state.time, 1);
 			printf("\nBURST");
-			DEBUGP(": %s", ubit_dump(trs->bitbuf, TETRA_BITS_PER_TS));
+			DEBUGP(": %s", osmo_ubit_dump(trs->bitbuf, TETRA_BITS_PER_TS));
 			printf("\n");
 
 			/* log the burst frames. useful for scanning etc --sq5bpf */
-			sprintf(tmpstr,"TETMON_begin FUNC:BURST RX:%i TETMON_end",tetra_hack_rxid);
-			sendto(tetra_hack_live_socket, (char *)&tmpstr, 128, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+			sprintf(tmpstr,"TETMON_begin FUNC:BURST TDMA:%02i/%02i/%01i RX:%i TETMON_end\r\n",
+					t_phy_state.time.mn,
+					t_phy_state.time.fn,
+					t_phy_state.time.tn,
+					tetra_hack_rxid);
+			sendto(tetra_hack_live_socket, (char *)&tmpstr, strlen(tmpstr) + 1, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 
 
 			rc = tetra_find_train_seq(trs->bitbuf, trs->bits_in_buf,
